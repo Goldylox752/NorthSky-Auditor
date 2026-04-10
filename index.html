@@ -73,6 +73,10 @@ pre {
 <div class="card">
   <small>Enter website</small>
   <input id="site" placeholder="example.com" />
+
+  <small>Email (for pro tracking)</small>
+  <input id="email" placeholder="you@example.com" />
+
   <button id="btn" onclick="analyzeSite()">Analyze Website</button>
 </div>
 
@@ -95,21 +99,31 @@ const state = {
 // =========================
 async function analyzeSite() {
   const siteInput = document.getElementById("site");
+  const emailInput = document.getElementById("email");
   const output = document.getElementById("output");
   const btn = document.getElementById("btn");
 
   let site = siteInput.value.trim();
+  const email = emailInput.value.trim() || localStorage.getItem("ns_email");
 
+  // Save email locally (important for SaaS flow)
+  if (email && email.includes("@")) {
+    localStorage.setItem("ns_email", email);
+  }
+
+  // VALIDATION
   if (!site) return output.innerText = "⚠️ Enter a website";
   if (!site.includes(".")) return output.innerText = "⚠️ Invalid website";
 
-  if (!site.startsWith("http")) site = "https://" + site;
+  if (!site.startsWith("http")) {
+    site = "https://" + site;
+  }
 
+  // FREE LIMIT CHECK
   if (state.uses >= state.freeLimit) {
     output.innerHTML = `
-      🚫 Free limit reached
-      <br><br>
-      <button onclick="alert('Upgrade system here')">Upgrade</button>
+      🚫 Free limit reached<br><br>
+      <button onclick="alert('Upgrade flow goes here')">Upgrade</button>
     `;
     return;
   }
@@ -121,10 +135,16 @@ async function analyzeSite() {
   output.innerText = "🤖 Analyzing website...";
 
   try {
+    // =========================
+    // FIXED SAAS API CALL
+    // =========================
     const res = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ site })
+      body: JSON.stringify({
+        site,
+        email: email || null
+      })
     });
 
     if (!res.ok) throw new Error("API failed");
@@ -160,7 +180,7 @@ async function analyzeSite() {
 }
 
 // =========================
-// SAFE PARSER (ROBUST)
+// SAFE PARSER
 // =========================
 function parseAI(text) {
   return {
