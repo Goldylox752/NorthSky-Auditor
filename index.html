@@ -3,10 +3,13 @@
 let paid = false;
 let uses = parseInt(localStorage.getItem("uses") || "0");
 
-// 🔥 CHECK ACCESS (REAL BACKEND)
+// 🔥 CHECK ACCESS (SUPABASE BACKEND)
 async function checkAccess() {
   const email = localStorage.getItem("userEmail");
-  if (!email) return;
+  if (!email) {
+    updateStatus();
+    return;
+  }
 
   try {
     const res = await fetch("/api/check-user", {
@@ -16,9 +19,10 @@ async function checkAccess() {
     });
 
     const data = await res.json();
-    paid = data.paid;
+    paid = data.paid || false;
 
-  } catch {
+  } catch (err) {
+    console.error("Access check failed:", err);
     paid = false;
   }
 
@@ -39,12 +43,13 @@ function updateStatus() {
 // 👤 SAVE USER
 function saveUser() {
   const email = document.getElementById("email").value;
+
   if (!email) return;
 
   localStorage.setItem("userEmail", email);
   document.getElementById("userStatus").innerText = "✅ Account saved";
 
-  checkAccess(); // 🔥 re-check after saving
+  checkAccess(); // re-check backend
 }
 
 // 💳 STRIPE CHECKOUT (WITH EMAIL)
@@ -56,41 +61,77 @@ function goToCheckout(type = "one-time") {
     return;
   }
 
-  let link = "";
+  const links = {
+    "one-time": "https://buy.stripe.com/cNi6oA1eraKU7ZR1QQ2ZO0u",
+    "monthly": "https://buy.stripe.com/00w8wIg9lf1a0xpbrq2ZO0v"
+  };
 
-  if (type === "monthly") {
-    link = "https://buy.stripe.com/00w8wIg9lf1a0xpbrq2ZO0v";
-  } else {
-    link = "https://buy.stripe.com/cNi6oA1eraKU7ZR1QQ2ZO0u";
-  }
+  const link = links[type];
 
   window.location.href = `${link}?prefilled_email=${encodeURIComponent(email)}`;
 }
 
-// 📊 LOAD REPORTS
-function loadReports() {
-  const reports = JSON.parse(localStorage.getItem("reports") || "[]");
+// 📊 LOAD REPORTS (SUPABASE)
+async function loadReports() {
+  const email = localStorage.getItem("userEmail");
   const container = document.getElementById("reports");
 
-  container.innerHTML = "";
-
-  if (!reports.length) {
-    container.innerHTML = "No reports yet";
+  if (!email) {
+    container.innerHTML = "Login to see reports";
     return;
   }
 
-  reports.slice().reverse().forEach(r => {
-    const div = document.createElement("div");
-    div.className = "report";
+  try {
+    const res = await fetch("/api/get-reports", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ email })
+    });
 
-    div.innerHTML = `
-      <strong>${r.site}</strong><br>
-      <small>${r.date}</small><br><br>
-      ${r.result.substring(0,120)}...
-    `;
+    const data = await res.json();
 
-    container.appendChild(div);
-  });
+    container.innerHTML = "";
+
+    if (!data.reports || data.reports.length === 0) {
+      container.innerHTML = "No reports yet";
+      return;
+    }
+
+    data.reports.reverse().forEach(r => {
+      const div = document.createElement("div");
+      div.className = "report";
+
+      div.innerHTML = `
+        <strong>${r.site}</strong><br>
+        <small>${new Date(r.created_at).toLocaleString()}</small><br><br>
+        ${r.result.substring(0,120)}...
+      `;
+
+      container.appendChild(div);
+    });
+
+  } catch (err) {
+    container.innerHTML = "⚠️ Failed to load reports";
+  }
+}
+
+// 💾 SAVE REPORT (SUPABASE)
+async function saveReport(site, result) {
+  const email = localStorage.getItem("userEmail");
+  if (!email) return;
+
+  try {
+    await fetch("/api/save-report", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ email, site, result })
+    });
+
+    loadReports();
+
+  } catch (err) {
+    console.error("Save failed:", err);
+  }
 }
 
 // 🧠 SCORING ENGINE
@@ -107,7 +148,7 @@ function calculateScore(input) {
   return Math.min(score, 95);
 }
 
-// 📍 INDUSTRY
+// 📍 INDUSTRY DETECTION
 function detectIndustry(input) {
   if (input.includes("plumb")) return "Plumbing";
   if (input.includes("roof")) return "Roofing";
@@ -132,16 +173,14 @@ async function analyzeSite() {
     return;
   }
 
-  // 🚫 LIMIT (REAL CHECK)
+  // 🚫 LIMIT
   if (!paid && uses >= 3) {
     output.innerHTML = `
       🚫 Free limit reached (3 analyses)<br><br>
 
-      ⚠️ Most users improve their score by 20–40 points<br><br>
+      ⚠️ Most users improve scores by 20–40 points<br><br>
 
-      <div class="highlight">
-      Small fixes = BIG revenue gains
-      </div><br>
+      <div class="highlight">Small fixes = BIG revenue gains</div><br>
 
       <button class="btn" onclick="goToCheckout()">Unlock Full Access</button>
     `;
@@ -152,7 +191,7 @@ async function analyzeSite() {
   localStorage.setItem("uses", uses);
   updateStatus();
 
-  // 🎬 LOADING
+  // 🎬 LOADING UI
   output.innerHTML = `
     <div>Analyzing website...</div>
     <div style="background:#1e293b;border-radius:8px;overflow:hidden;">
@@ -181,7 +220,7 @@ async function analyzeSite() {
     "Poor conversion flow"
   ].sort(() => 0.5 - Math.random()).slice(0,3);
 
-  // 🔒 FREE VERSION
+  // 🔒 FREE
   if (!paid) {
     output.innerHTML = `
       <strong>📊 Website Score: ${score}/100</strong><br><br>
@@ -225,24 +264,7 @@ ${issues.map(i => "❌ " + i).join("\n")}
 
   output.innerHTML = result.replace(/\n/g, "<br>");
 
-  saveReport(inputRaw, result);
-}
-
-// 💾 SAVE REPORT
-function saveReport(site, result) {
-  const email = localStorage.getItem("userEmail");
-  if (!email) return;
-
-  const reports = JSON.parse(localStorage.getItem("reports") || "[]");
-
-  reports.push({
-    site,
-    result,
-    date: new Date().toLocaleString()
-  });
-
-  localStorage.setItem("reports", JSON.stringify(reports));
-  loadReports();
+  await saveReport(inputRaw, result);
 }
 
 // 🚀 INIT
