@@ -23,10 +23,7 @@ const NorthSky = {
 // =============================
 NorthSky.init = async function () {
   this.updateStatus();
-
-  if (this.state.email) {
-    await this.checkAccess();
-  }
+  if (this.state.email) await this.checkAccess();
 };
 
 // =============================
@@ -70,8 +67,7 @@ NorthSky.updateStatus = function () {
 // 👤 USER HANDLING
 // =============================
 NorthSky.saveUser = function () {
-  const input = document.getElementById("email");
-  const email = input.value.trim();
+  const email = document.getElementById("email").value.trim();
 
   if (!email || !email.includes("@")) {
     alert("Enter a valid email");
@@ -100,57 +96,43 @@ NorthSky.checkout = function (type = "one-time") {
 };
 
 // =============================
-// 🧠 SCORING ENGINE (IMPROVED)
-// =============================
-NorthSky.score = function (input) {
-  let score = 50;
-
-  const rules = [
-    { test: /shop|store/, value: 10 },
-    { test: /ai/, value: 5 },
-    { test: /https/, value: 5 },
-    { test: /.{20,}/, value: 5 }
-  ];
-
-  rules.forEach(r => {
-    if (r.test.test(input)) score += r.value;
-  });
-
-  // variability
-  score += Math.floor(Math.random() * 10);
-
-  return Math.min(score, 95);
-};
-
-// =============================
-// ⏳ DELAY (UX)
+// ⏳ DELAY
 // =============================
 NorthSky.delay = ms => new Promise(res => setTimeout(res, ms));
 
 // =============================
-// 🚀 MAIN ANALYSIS ENGINE
+// 🚀 MAIN ANALYSIS
 // =============================
 NorthSky.analyze = async function () {
   const inputEl = document.getElementById("site");
   const output = document.getElementById("output");
 
-  const raw = inputEl.value.trim();
-  const input = raw.toLowerCase();
+  let raw = inputEl.value.trim();
 
-  if (!input) {
+  // ❌ EMPTY
+  if (!raw) {
     output.innerText = "Enter your website URL";
     return;
   }
 
-  // 🚫 LIMIT CHECK
+  // ❌ INVALID
+  if (!raw.includes(".")) {
+    output.innerText = "Enter a valid website (example.com)";
+    return;
+  }
+
+  // 🔧 FIX URL (IMPORTANT)
+  if (!raw.startsWith("http")) {
+    raw = "https://" + raw;
+  }
+
+  // 🚫 LIMIT
   if (!this.state.paid && this.state.uses >= this.config.freeLimit) {
     output.innerHTML = `
       🚫 Free limit reached<br><br>
-
       <div class="highlight">
         Most sites increase conversions 30–50%
       </div><br>
-
       <button class="btn" onclick="NorthSky.checkout()">
         Unlock Full AI 🚀
       </button>
@@ -158,14 +140,12 @@ NorthSky.analyze = async function () {
     return;
   }
 
-  // increment usage
+  // usage
   this.state.uses++;
   localStorage.setItem("ns_uses", this.state.uses);
   this.updateStatus();
 
-  // =============================
-  // 🎬 LOADING UX
-  // =============================
+  // 🎬 LOADING
   output.innerHTML = `
     🤖 Running AI scan...<br><br>
     🔍 Checking structure...
@@ -176,34 +156,8 @@ NorthSky.analyze = async function () {
   await this.delay(500);
   output.innerHTML += "<br>⚡ Building report...<br><br>";
 
-  const score = this.score(input);
-
   // =============================
-  // 🔒 FREE MODE (HOOK)
-  // =============================
-  if (!this.state.paid) {
-    output.innerHTML += `
-      <strong>📊 Score: ${score}/100</strong><br><br>
-
-      ❌ Weak CTA<br>
-      ❌ Low trust signals<br>
-      ❌ Poor messaging<br><br>
-
-      <div class="highlight">
-        🔒 Unlock exact fixes to boost conversions
-      </div><br>
-
-      <strong>${score} → ${score + 25}+ 🚀</strong><br><br>
-
-      <button class="btn" onclick="NorthSky.checkout()">
-        Get Full Report ($9)
-      </button>
-    `;
-    return;
-  }
-
-  // =============================
-  // 💰 REAL AI CALL
+  // 💰 REAL API CALL
   // =============================
   try {
     const res = await fetch("/api/analyze", {
@@ -214,6 +168,11 @@ NorthSky.analyze = async function () {
 
     const data = await res.json();
 
+    if (!res.ok) {
+      output.innerHTML = data.result || "⚠️ Error analyzing site";
+      return;
+    }
+
     output.innerHTML = `
       <strong>📊 Full AI Report</strong><br><br>
       ${data.result.replace(/\n/g, "<br>")}
@@ -221,12 +180,10 @@ NorthSky.analyze = async function () {
 
   } catch (err) {
     console.error(err);
-    output.innerHTML = "⚠️ AI analysis failed";
+    output.innerHTML = "⚠️ Network error";
   }
 };
 
-// =============================
-// 🔥 AUTO INIT
 // =============================
 NorthSky.init();
 </script>
