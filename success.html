@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Payment Success</title>
+<title>Payment Successful</title>
 
 <style>
 body{
@@ -14,6 +14,7 @@ body{
   text-align:center;
   padding:40px;
 }
+
 .btn{
   margin-top:20px;
   padding:14px;
@@ -30,13 +31,19 @@ body{
 <body>
 
 <h1>✅ Payment Successful</h1>
-<p>You now have unlimited access</p>
+<p>You now have unlimited access 🚀</p>
+<p>Redirecting you to the app...</p>
 
 <button class="btn" onclick="goToApp()">Go to Tool</button>
 
 <script>
-// 🔓 UNLOCK USER
+// 🔓 UNLOCK USER (ONLY ONCE)
 localStorage.setItem("paid", "true");
+
+// ⏱ AUTO REDIRECT AFTER 2 SECONDS
+setTimeout(() => {
+  window.location.href = "/";
+}, 2000);
 
 function goToApp(){
   window.location.href = "/";
