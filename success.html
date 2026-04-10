@@ -1,1 +1,43 @@
-success.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Success</title>
+
+<style>
+body{
+  font-family:Arial;
+  background:#020617;
+  color:white;
+  text-align:center;
+  padding:40px;
+}
+.btn{
+  padding:14px;
+  background:#38bdf8;
+  border:none;
+  border-radius:8px;
+  font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎉 Payment Successful</h1>
+
+<p>You're now unlocked. Enjoy unlimited access.</p>
+
+<a href="/tools/lead-reply.html">
+  <button class="btn">Go to Tool</button>
+</a>
+
+<script>
+// 🔓 UNLOCK USER
+localStorage.setItem('paid', 'true');
+</script>
+
+</body>
+</html>
