@@ -110,7 +110,6 @@ Used by 1,200+ businesses to improve their websites ⚡
 
   <div id="output"></div>
 
-  <!-- LOOP BUTTON -->
   <button onclick="analyzeSite()" class="btn">
     Re-analyze After Fixes
   </button>
@@ -131,7 +130,7 @@ Used by 1,200+ businesses to improve their websites ⚡
 <script>
 let paid = localStorage.getItem("paid") === "true";
 
-function analyzeSite() {
+async function analyzeSite() {
   const input = document.getElementById("site").value;
   const output = document.getElementById("output");
 
@@ -140,66 +139,51 @@ function analyzeSite() {
     return;
   }
 
-  let score = 90;
-  let issues = [];
+  output.innerText = "Analyzing... 🤖";
 
-  if (!input.includes("http")) {
-    issues.push("No proper URL format detected");
-    score -= 10;
-  }
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ site: input })
+    });
 
-  if (input.length < 15) {
-    issues.push("Low content depth detected");
-    score -= 15;
-  }
+    const data = await res.json();
 
-  if (!input.includes(".")) {
-    issues.push("Invalid domain structure");
-    score -= 10;
-  }
+    if (!data.result) {
+      output.innerText = "Analysis failed";
+      return;
+    }
 
-  // Simulated realistic issues
-  issues.push("No clear offer (users leave quickly)");
-  issues.push("Missing trust signals (low credibility)");
-  issues.push("Weak call-to-action (low conversions)");
+    // 🔒 PREVIEW (first few lines only)
+    let preview = data.result.split("\n").slice(0, 5).join("<br>");
 
-  score = Math.max(50, score);
+    if (!paid) {
+      output.innerHTML = `
+        ${preview}<br><br>
+        🔒 See exactly how to fix this and increase conversions<br><br>
 
-  let preview = `
-  <strong>Website Score: ${score}/100 ⚠️</strong><br>
-  ⚠️ You are likely losing 30–50% of potential customers<br><br>
+        <a href="https://buy.stripe.com/cNi6oA1eraKU7ZR1QQ2ZO0u?success_url=https://north-sky-ai.vercel.app/success.html">
+          <button class="btn">Unlock Full Report ($9)</button>
+        </a>
+      `;
+      return;
+    }
 
-  ✔ Design: Decent<br>
-  ❌ SEO: Weak<br>
-  ❌ Conversion: Poor<br><br>
+    // 💰 FULL RESULT
+    output.innerHTML = `
+      ${data.result.replace(/\n/g, "<br>")}<br><br>
 
-  <strong>Top Issues:</strong><br>
-  ${issues.map(i => "- " + i).join("<br>")}
-  `;
-
-  if (!paid) {
-    output.innerHTML = preview + `
-      <br><br>
-      🔒 See exactly how to fix this and increase conversions<br><br>
-
-      <a href="https://buy.stripe.com/cNi6oA1eraKU7ZR1QQ2ZO0u?success_url=https://north-sky-ai.vercel.app/success.html">
-        <button class="btn">Unlock Full Report ($9)</button>
-      </a>
+      <button onclick="analyzeSite()" class="btn">
+        Re-analyze After Fixes
+      </button>
     `;
-    return;
+
+  } catch (err) {
+    output.innerText = "Connection failed";
   }
-
-  output.innerHTML = preview + `
-    <br><br>
-    <strong>How to Improve:</strong><br><br>
-
-    + Add strong headline → +15 points<br>
-    + Add testimonials → +10 points<br>
-    + Add trust badges → +10 points<br>
-    + Improve CTA → +15 points<br><br>
-
-    <strong>Potential Score: ${score + 30}+/100 🚀</strong><br><br>
-  `;
 }
 </script>
 
