@@ -31,18 +31,18 @@ body{
   color:var(--text);
   display:flex;
   justify-content:center;
-  padding:50px 20px;
+  padding:60px 20px;
 }
 
-/* CONTAINER */
+/* container */
 .container{
   width:100%;
-  max-width:850px;
+  max-width:900px;
 }
 
-/* HEADER */
+/* HERO */
 h1{
-  font-size:34px;
+  font-size:36px;
   letter-spacing:-0.5px;
 }
 
@@ -50,6 +50,7 @@ h1{
   color:var(--muted);
   margin-top:6px;
   margin-bottom:20px;
+  line-height:1.5;
 }
 
 /* CARD */
@@ -58,11 +59,11 @@ h1{
   border:1px solid var(--border);
   border-radius:18px;
   padding:18px;
-  backdrop-filter:blur(14px);
+  backdrop-filter:blur(16px);
   margin-top:14px;
 }
 
-/* INPUTS */
+/* INPUT */
 input{
   width:100%;
   padding:12px;
@@ -96,10 +97,6 @@ button:hover{
   transform:translateY(-2px);
 }
 
-button:disabled{
-  opacity:0.5;
-}
-
 /* GRID */
 .grid{
   display:grid;
@@ -108,7 +105,7 @@ button:disabled{
   margin-top:14px;
 }
 
-/* METRIC CARD */
+/* METRIC */
 .metric{
   padding:14px;
   border-radius:14px;
@@ -119,13 +116,13 @@ button:disabled{
 .metric h3{
   font-size:12px;
   color:var(--muted);
-  margin-bottom:6px;
 }
 
 .metric .value{
   font-size:22px;
   font-weight:700;
   color:var(--green);
+  margin-top:6px;
 }
 
 /* OUTPUT */
@@ -138,6 +135,12 @@ button:disabled{
 .loading{
   color:var(--accent);
 }
+
+/* HEADER BLOCK */
+.header{
+  text-align:left;
+  margin-bottom:20px;
+}
 </style>
 </head>
 
@@ -145,31 +148,36 @@ button:disabled{
 
 <div class="container">
 
-<h1>🧠 NorthSky AI Auditor</h1>
-<p class="sub">AI-powered website intelligence & performance analysis</p>
+<!-- HEADER -->
+<div class="header">
+  <h1>🧠 NorthSky AI Auditor</h1>
+  <p class="sub">
+    AI-powered website intelligence, SEO scoring, UX analysis, and conversion insights.
+  </p>
+</div>
 
 <!-- INPUT -->
 <div class="card">
   <input id="site" placeholder="Enter website (example.com)" />
   <input id="email" placeholder="Email (optional)" />
-
   <button id="btn" onclick="analyzeSite()">Analyze Website</button>
 </div>
 
-<!-- RESULTS -->
+<!-- OUTPUT -->
 <div id="output" class="card output">
-  Waiting for analysis...
+  Ready to analyze a website.
 </div>
 
 <!-- METRICS -->
 <div id="metrics" class="grid" style="display:none;">
+
   <div class="metric">
-    <h3>SEO</h3>
+    <h3>SEO Score</h3>
     <div class="value" id="seo">--</div>
   </div>
 
   <div class="metric">
-    <h3>UX</h3>
+    <h3>UX Score</h3>
     <div class="value" id="ux">--</div>
   </div>
 
@@ -177,6 +185,7 @@ button:disabled{
     <h3>Conversion</h3>
     <div class="value" id="conv">--</div>
   </div>
+
 </div>
 
 </div>
@@ -205,7 +214,7 @@ async function analyzeSite(){
   }
 
   if(state.uses >= state.limit){
-    output.innerHTML = "🚫 Free limit reached";
+    output.innerText = "🚫 Free limit reached";
     return;
   }
 
@@ -232,13 +241,15 @@ async function analyzeSite(){
       return;
     }
 
-    const parsed = parse(text);
+    // extract metrics
+    const seo = extract(text,"SEO Score");
+    const ux = extract(text,"UX Score");
+    const conv = extract(text,"Conversion Score");
 
-    // show metrics
     document.getElementById("metrics").style.display = "grid";
-    document.getElementById("seo").innerText = parsed.seo;
-    document.getElementById("ux").innerText = parsed.ux;
-    document.getElementById("conv").innerText = parsed.conv;
+    document.getElementById("seo").innerText = seo;
+    document.getElementById("ux").innerText = ux;
+    document.getElementById("conv").innerText = conv;
 
     output.innerHTML = text;
 
@@ -250,18 +261,9 @@ async function analyzeSite(){
   btn.innerText = "Analyze Website";
 }
 
-function parse(text){
-  return {
-    seo: find(text,"SEO Score"),
-    ux: find(text,"UX Score"),
-    conv: find(text,"Conversion Score")
-  };
-}
-
-function find(t,k){
-  const r = new RegExp(k+":\\s*(\\d+\\/\\d+)");
-  const m = t.match(r);
-  return m?m[1]:"--";
+function extract(text,label){
+  const match = text.match(new RegExp(label + ":\\s*(\\d+\\/\\d+)"));
+  return match ? match[1] : "--";
 }
 
 </script>
