@@ -12,9 +12,49 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-/* ================= MIDDLEWARE ================= */
-app.use(express.json());
+/* ================= STRIPE WEBHOOK (RAW MUST BE FIRST) ================= */
+app.post(
+  "/api/webhook",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    const sig = req.headers["stripe-signature"];
+
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const apiKey = session.metadata?.apiKey;
+
+      if (apiKey && users.has(apiKey)) {
+        const user = users.get(apiKey);
+
+        user.plan = "pro";
+        user.limit = 1000;
+        user.usage = 0;
+
+        users.set(apiKey, user);
+
+        console.log("💳 PRO UPGRADED:", apiKey);
+      }
+    }
+
+    res.json({ received: true });
+  }
+);
+
+/* ================= NORMAL MIDDLEWARE ================= */
 app.use(cors());
+app.use(express.json());
 
 app.use((req, res, next) => {
   console.log(`➡️ ${req.method} ${req.url}`);
@@ -24,16 +64,14 @@ app.use((req, res, next) => {
 /* ================= MEMORY DB ================= */
 const users = new Map();
 const cache = new Map();
+
 const CACHE_TTL = 1000 * 60 * 30;
 
 /* ================= CACHE ================= */
 function getCache(key) {
   const item = cache.get(key);
   if (!item) return null;
-  if (Date.now() - item.time > CACHE_TTL) {
-    cache.delete(key);
-    return null;
-  }
+  if (Date.now() - item.time > CACHE_TTL) return null;
   return item.data;
 }
 
@@ -45,7 +83,6 @@ function setCache(key, data) {
 function normalizeURL(input) {
   try {
     if (!input) return null;
-    input = input.trim();
     if (!input.startsWith("http")) input = "https://" + input;
     return new URL(input).toString();
   } catch {
@@ -78,7 +115,7 @@ async function fetchHTML(url) {
   }
 }
 
-/* ================= SCRAPER ================= */
+/* ================= PARSER ================= */
 function parseHTML(html, url) {
   const $ = cheerio.load(html);
 
@@ -95,12 +132,11 @@ function parseHTML(html, url) {
       "",
 
     image: $("meta[property='og:image']").attr("content") || null,
-
-    site: new URL(url).hostname.replace("www.", ""),
+    site: new URL(url).hostname.replace("www.", "")
   };
 }
 
-/* ================= AI SCORING ================= */
+/* ================= SCORING ENGINE ================= */
 function analyzeHTML(html, url) {
   const $ = cheerio.load(html);
 
@@ -130,11 +166,11 @@ function analyzeHTML(html, url) {
   return {
     seo: Math.min(seo, 100),
     ux: Math.min(ux, 100),
-    conv: Math.min(conv, 100),
+    conv: Math.min(conv, 100)
   };
 }
 
-/* ================= LIMIT MIDDLEWARE ================= */
+/* ================= AUTH + LIMIT ================= */
 function checkLimit(req, res, next) {
   const apiKey = req.headers["x-api-key"];
 
@@ -145,7 +181,10 @@ function checkLimit(req, res, next) {
   const user = users.get(apiKey);
 
   if (user.usage >= user.limit) {
-    return res.status(429).json({ error: "limit_reached", plan: user.plan });
+    return res.status(429).json({
+      error: "limit_reached",
+      plan: user.plan
+    });
   }
 
   user.usage++;
@@ -162,7 +201,7 @@ async function scrape(url) {
 
   return {
     success: true,
-    metadata: parseHTML(html, url),
+    metadata: parseHTML(html, url)
   };
 }
 
@@ -180,16 +219,7 @@ async function searchEngine(query) {
   };
 }
 
-/* ================= ASK ROUTER ================= */
-async function askEngine(input) {
-  if (isURL(input)) {
-    return scrape(normalizeURL(input));
-  }
-
-  return searchEngine(input);
-}
-
-/* ================= STRIPE USER CREATE ================= */
+/* ================= USER SYSTEM ================= */
 app.post("/api/create-user", (req, res) => {
   const apiKey = uuidv4();
 
@@ -200,10 +230,14 @@ app.post("/api/create-user", (req, res) => {
     limit: 5
   });
 
-  res.json({ success: true, apiKey });
+  res.json({
+    success: true,
+    apiKey,
+    plan: "free"
+  });
 });
 
-/* ================= STRIPE SUBSCRIBE ================= */
+/* ================= STRIPE SUBSCRIBE ($29) ================= */
 app.post("/api/subscribe", async (req, res) => {
   const { apiKey } = req.body;
 
@@ -219,7 +253,7 @@ app.post("/api/subscribe", async (req, res) => {
         price_data: {
           currency: "usd",
           product_data: {
-            name: "NorthSky Auditor Pro"
+            name: "NorthSky AI Auditor Pro"
           },
           unit_amount: 2900,
           recurring: { interval: "month" }
@@ -227,48 +261,17 @@ app.post("/api/subscribe", async (req, res) => {
         quantity: 1
       }
     ],
-    success_url: `${process.env.BASE_URL}/success?apiKey=${apiKey}`,
+    metadata: {
+      apiKey
+    },
+    success_url: `${process.env.BASE_URL}/success`,
     cancel_url: `${process.env.BASE_URL}/cancel`
   });
 
   res.json({ url: session.url });
 });
 
-/* ================= WEBHOOK ================= */
-app.post("/api/webhook", express.raw({ type: "application/json" }), (req, res) => {
-  const sig = req.headers["stripe-signature"];
-
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch {
-    return res.status(400).send("Webhook Error");
-  }
-
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-
-    const apiKey = new URL(session.success_url).searchParams.get("apiKey");
-
-    if (users.has(apiKey)) {
-      const user = users.get(apiKey);
-
-      user.plan = "pro";
-      user.limit = 1000;
-      user.usage = 0;
-
-      users.set(apiKey, user);
-    }
-  }
-
-  res.json({ received: true });
-});
-
-/* ================= API ROUTES ================= */
+/* ================= ROUTES ================= */
 app.get("/api/rip", checkLimit, async (req, res) => {
   const url = normalizeURL(req.query.url);
   if (!url) return res.status(400).json({ error: "invalid_url" });
@@ -300,7 +303,7 @@ Conversion Score: ${scores.conv}/100
 
 app.get("/api/ask", checkLimit, async (req, res) => {
   const q = req.query.q;
-  const result = await askEngine(q);
+  const result = await searchEngine(q);
   res.json(result);
 });
 
@@ -327,11 +330,12 @@ app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     uptime: process.uptime(),
-    users: users.size
+    users: users.size,
+    cache: cache.size
   });
 });
 
 /* ================= START ================= */
 app.listen(PORT, () => {
-  console.log(`🚀 NorthSky OS v3 LIVE on ${PORT}`);
+  console.log(`🚀 NorthSky OS v3 PRO SaaS running on ${PORT}`);
 });
