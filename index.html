@@ -16,13 +16,10 @@
   --text:#ffffff;
   --muted:rgba(255,255,255,0.6);
   --green:#22c55e;
+  --red:#ef4444;
 }
 
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-}
+*{margin:0;padding:0;box-sizing:border-box;}
 
 body{
   font-family:'Inter',sans-serif;
@@ -39,52 +36,33 @@ body{
   justify-content:space-between;
   padding:18px 40px;
   border-bottom:1px solid var(--border);
-  backdrop-filter:blur(10px);
 }
 
-.logo{
-  font-weight:700;
-}
+.logo{font-weight:700;}
 
 .badge{
   font-size:12px;
   opacity:0.6;
 }
 
-/* LAYOUT */
+/* CONTAINER */
 .container{
   max-width:900px;
   margin:0 auto;
   padding:50px 20px;
 }
 
-/* HERO */
-.hero{
-  text-align:left;
-  margin-bottom:25px;
-}
+.hero h1{font-size:38px;}
+.hero p{color:var(--muted);margin-top:6px;}
 
-.hero h1{
-  font-size:38px;
-  letter-spacing:-0.5px;
-}
-
-.hero p{
-  color:var(--muted);
-  margin-top:6px;
-}
-
-/* CARD */
 .card{
   background:var(--card);
   border:1px solid var(--border);
   border-radius:18px;
   padding:18px;
-  backdrop-filter:blur(16px);
   margin-top:14px;
 }
 
-/* INPUT */
 input{
   width:100%;
   padding:12px;
@@ -93,14 +71,8 @@ input{
   background:rgba(0,0,0,0.25);
   color:white;
   margin-top:10px;
-  outline:none;
 }
 
-input:focus{
-  border-color:var(--accent);
-}
-
-/* BUTTON */
 button{
   width:100%;
   padding:12px;
@@ -108,17 +80,13 @@ button{
   border-radius:999px;
   border:none;
   background:var(--accent);
-  color:#000;
+  color:black;
   font-weight:700;
   cursor:pointer;
-  transition:0.2s;
 }
 
-button:hover{
-  transform:translateY(-2px);
-}
+button:hover{transform:translateY(-2px);}
 
-/* METRICS */
 .grid{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -133,34 +101,33 @@ button:hover{
   background:rgba(255,255,255,0.03);
 }
 
-.metric h3{
-  font-size:12px;
-  color:var(--muted);
-}
+.metric h3{font-size:12px;color:var(--muted);}
+.metric .value{font-size:22px;font-weight:700;color:var(--green);margin-top:6px;}
 
-.metric .value{
-  font-size:22px;
-  font-weight:700;
-  margin-top:6px;
-  color:var(--green);
-}
+.output{white-space:pre-wrap;color:var(--muted);}
 
-/* OUTPUT */
-.output{
-  white-space:pre-wrap;
-  line-height:1.6;
-  color:var(--muted);
-}
+.loading{color:var(--accent);}
 
-.loading{
-  color:var(--accent);
-}
-
-/* STATUS */
 .status{
   font-size:12px;
   color:var(--muted);
   margin-top:8px;
+}
+
+.upgrade{
+  margin-top:10px;
+  display:none;
+}
+
+.upgrade a{
+  display:block;
+  text-align:center;
+  padding:10px;
+  border-radius:12px;
+  background:var(--red);
+  color:white;
+  text-decoration:none;
+  font-weight:700;
 }
 </style>
 </head>
@@ -174,43 +141,33 @@ button:hover{
 
 <div class="container">
 
-  <!-- HERO -->
   <div class="hero">
     <h1>🧠 AI Website Intelligence</h1>
-    <p>SEO • UX • Conversion scoring powered by NorthSky OS</p>
+    <p>SEO • UX • Conversion scoring</p>
   </div>
 
-  <!-- INPUT -->
   <div class="card">
     <input id="site" placeholder="Enter website (example.com)" />
-    <input id="email" placeholder="Email (optional for report)" />
-    <button id="btn" onclick="analyzeSite()">Run Audit</button>
+    <input id="email" placeholder="Email (optional)" />
+
+    <button onclick="analyzeSite()" id="btn">Run Audit</button>
+
     <div class="status" id="status">Free tier: 3 audits</div>
+
+    <!-- UPGRADE -->
+    <div class="upgrade" id="upgrade">
+      <a href="https://buy.stripe.com/fZu8wI2iv5qA2Fx0MM2ZO0z" target="_blank">
+        🚀 Upgrade to Pro — $29/month
+      </a>
+    </div>
   </div>
 
-  <!-- OUTPUT -->
-  <div id="output" class="card output">
-    Ready to analyze.
-  </div>
+  <div id="output" class="card output">Ready.</div>
 
-  <!-- METRICS -->
   <div id="metrics" class="grid" style="display:none;">
-
-    <div class="metric">
-      <h3>SEO</h3>
-      <div class="value" id="seo">--</div>
-    </div>
-
-    <div class="metric">
-      <h3>UX</h3>
-      <div class="value" id="ux">--</div>
-    </div>
-
-    <div class="metric">
-      <h3>Conversion</h3>
-      <div class="value" id="conv">--</div>
-    </div>
-
+    <div class="metric"><h3>SEO</h3><div class="value" id="seo">--</div></div>
+    <div class="metric"><h3>UX</h3><div class="value" id="ux">--</div></div>
+    <div class="metric"><h3>Conversion</h3><div class="value" id="conv">--</div></div>
   </div>
 
 </div>
@@ -222,7 +179,12 @@ const state = {
   limit: 3
 };
 
+function showUpgrade(){
+  document.getElementById("upgrade").style.display = "block";
+}
+
 async function analyzeSite(){
+
   let site = document.getElementById("site").value.trim();
   const email = document.getElementById("email").value.trim();
 
@@ -230,7 +192,7 @@ async function analyzeSite(){
   const btn = document.getElementById("btn");
 
   if(!site){
-    output.innerText = "⚠️ Enter a website";
+    output.innerText = "Enter a website";
     return;
   }
 
@@ -238,8 +200,10 @@ async function analyzeSite(){
     site = "https://" + site;
   }
 
+  // LIMIT CHECK
   if(state.uses >= state.limit){
-    output.innerText = "🚫 Upgrade to Pro for unlimited audits";
+    output.innerText = "🚫 Free limit reached — Upgrade to Pro";
+    showUpgrade();
     return;
   }
 
@@ -249,9 +213,10 @@ async function analyzeSite(){
   btn.disabled = true;
   btn.innerText = "Analyzing...";
 
-  output.innerHTML = "<span class='loading'>🧠 Running NorthSky AI audit...</span>";
+  output.innerHTML = "<span class='loading'>Running audit...</span>";
 
   try {
+
     const res = await fetch("/api/analyze", {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
@@ -259,26 +224,25 @@ async function analyzeSite(){
     });
 
     const data = await res.json();
-    const text = data?.result;
 
-    if(!text){
+    if(!data.result){
       output.innerText = "No response";
       return;
     }
 
-    const seo = extract(text,"SEO Score");
-    const ux = extract(text,"UX Score");
-    const conv = extract(text,"Conversion Score");
+    const seo = extract(data.result,"SEO Score");
+    const ux = extract(data.result,"UX Score");
+    const conv = extract(data.result,"Conversion Score");
 
     document.getElementById("metrics").style.display = "grid";
     document.getElementById("seo").innerText = seo;
     document.getElementById("ux").innerText = ux;
     document.getElementById("conv").innerText = conv;
 
-    output.innerHTML = text;
+    output.innerText = data.result;
 
   } catch(e){
-    output.innerText = "⚠️ Failed to run audit";
+    output.innerText = "Error running audit";
   }
 
   btn.disabled = false;
@@ -289,7 +253,6 @@ function extract(text,label){
   const match = text.match(new RegExp(label + ":\\s*(\\d+\\/\\d+)"));
   return match ? match[1] : "--";
 }
-
 </script>
 
 </body>
