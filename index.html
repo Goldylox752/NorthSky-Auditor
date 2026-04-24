@@ -48,11 +48,13 @@
       font-weight: 600;
     }
 
-    .primary { background: #3b82f6; color: white; }
+    .stripe {
+      background: #635bff;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
 
-    .stripe { background: #635bff; color: white; width: 100%; margin-top: 10px; }
-
-    /* PAYWALL */
     .paywall {
       position: fixed;
       inset: 0;
@@ -90,7 +92,7 @@
   </div>
 </div>
 
-<!-- MAIN -->
+<!-- MAIN APP -->
 <div id="app" class="hidden">
   <div class="container">
 
@@ -121,73 +123,80 @@
 <script>
 (function () {
 
-  const AUTH_KEY = "nsky_auth";
-
-  function isAuth() {
-    return sessionStorage.getItem(AUTH_KEY) === "true";
-  }
-
-  function unlock() {
-    sessionStorage.setItem(AUTH_KEY, "true");
+  // -------------------------
+  // UI STATE CONTROL
+  // -------------------------
+  function showApp() {
     document.getElementById("paywall").style.display = "none";
     document.getElementById("app").classList.remove("hidden");
   }
 
-  function lock() {
-    sessionStorage.removeItem(AUTH_KEY);
+  function showPaywall() {
     document.getElementById("paywall").style.display = "flex";
     document.getElementById("app").classList.add("hidden");
   }
 
-  // ---------- STRIPE ----------
+  // -------------------------
+  // STRIPE CHECKOUT
+  // -------------------------
   async function checkout(plan) {
-    const res = await fetch("/api/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan })
-    });
+    try {
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan })
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.url) {
-      window.location.href = data.url;
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
     }
   }
 
-  // ---------- VERIFY ----------
-  async function verify() {
-    const session_id = new URLSearchParams(window.location.search).get("session_id");
+  // -------------------------
+  // REAL ACCESS CHECK (SECURE)
+  // -------------------------
+  async function checkAccess() {
+    try {
+      const res = await fetch("/api/me");
+      const data = await res.json();
 
-    if (!session_id) return;
-
-    const res = await fetch("/api/verify-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id })
-    });
-
-    const data = await res.json();
-
-    if (data.valid) {
-      unlock();
+      if (data.access) {
+        showApp();
+      } else {
+        showPaywall();
+      }
+    } catch (err) {
+      console.error("Access check failed:", err);
+      showPaywall();
     }
   }
 
-  // ---------- EVENTS ----------
+  // -------------------------
+  // LOGOUT (UI ONLY)
+  // -------------------------
+  function logout() {
+    showPaywall();
+  }
+
+  // -------------------------
+  // EVENTS
+  // -------------------------
   document.getElementById("plan1").onclick = () => checkout("basic");
   document.getElementById("plan2").onclick = () => checkout("pro");
   document.getElementById("plan3").onclick = () => checkout("enterprise");
 
-  document.getElementById("logoutBtn").onclick = lock;
+  document.getElementById("logoutBtn").onclick = logout;
 
-  // ---------- INIT ----------
-  function init() {
-    if (isAuth()) {
-      document.getElementById("paywall").style.display = "none";
-      document.getElementById("app").classList.remove("hidden");
-    }
-
-    verify();
+  // -------------------------
+  // INIT
+  // -------------------------
+  async function init() {
+    await checkAccess();
   }
 
   init();
